@@ -233,6 +233,7 @@ void compute(	const phase3::output_t& input, output_t& out,
 				const std::string tmp_dir,
 				const std::string tmp_dir_2)
 {
+	Timer p;
 	const auto total_begin = get_wall_time_micros();
 	
 	FILE* plot_file = FOPEN(input.plot_file_name.c_str(), "rb+");
@@ -252,6 +253,8 @@ void compute(	const phase3::output_t& input, output_t& out,
 	
 	std::cout << "Phase 4 took " << (get_wall_time_micros() - total_begin) / 1e6 << " sec"
 			", final plot size is " << out.plot_size << " bytes" << std::endl;
+
+	p.PrintElapsed("Time for phase 4 =");
 }
 
 

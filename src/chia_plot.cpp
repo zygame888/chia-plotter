@@ -37,6 +37,7 @@ phase4::output_t create_plot(	const int num_threads,
 								const std::string& tmp_dir,
 								const std::string& tmp_dir_2)
 {
+	Timer p;
 	const auto total_begin = get_wall_time_micros();
 
 	std::cout << "Process ID: " << GETPID() << std::endl;
@@ -72,13 +73,15 @@ phase4::output_t create_plot(	const int num_threads,
 		}
 		bls::Util::Hash256(params.id.data(), bytes.data(), bytes.size());
 	}
-	const std::string plot_name = "plot-k32-" + get_date_string_ex("%Y-%m-%d-%H-%M")
-			+ "-" + bls::Util::HexStr(params.id.data(), params.id.size());
+
+	const std::string plot_id = bls::Util::HexStr(params.id.data(), params.id.size());
+	const std::string plot_name = "plot-k32-" + get_date_string_ex("%Y-%m-%d-%H-%M") + "-" + plot_id;
 	
 	std::cout << "Working Directory:   " << (tmp_dir.empty() ? "$PWD" : tmp_dir) << std::endl;
 	std::cout << "Working Directory 2: " << (tmp_dir_2.empty() ? "$PWD" : tmp_dir_2) << std::endl;
 	std::cout << "Plot Name: " << plot_name << std::endl;
-	
+	std::cout << "ID: " << plot_id << std::endl << std::endl;
+		
 	// memo = bytes(pool_public_key) + bytes(farmer_public_key) + bytes(local_master_sk)
 	params.memo.insert(params.memo.end(), pool_key_bytes.begin(), pool_key_bytes.end());
 	params.memo.insert(params.memo.end(), farmer_key_bytes.begin(), farmer_key_bytes.end());
@@ -102,6 +105,7 @@ phase4::output_t create_plot(	const int num_threads,
 	
 	std::cout << "Total plot creation time was "
 			<< (get_wall_time_micros() - total_begin) / 1e6 << " sec" << std::endl;
+	p.PrintElapsed("Total time =");
 	return out_4;
 }
 

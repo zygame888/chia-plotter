@@ -129,6 +129,7 @@ void compute(	const phase1::output_t& input, output_t& out,
 				const std::string tmp_dir,
 				const std::string tmp_dir_2)
 {
+	Timer p;
 	const auto total_begin = get_wall_time_micros();
 	
 	const std::string prefix = tmp_dir + plot_name + ".p2.";
@@ -168,6 +169,7 @@ void compute(	const phase1::output_t& input, output_t& out,
 	out.bitfield_1 = next_bitfield;
 	
 	std::cout << "Phase 2 took " << (get_wall_time_micros() - total_begin) / 1e6 << " sec" << std::endl;
+	p.PrintElapsed("Time for phase 2 =");
 }
 
 
