@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 3.10)
 set(CMAKE_CXX_STANDARD 17)
 project(chia-plotter C CXX ASM)
 
-add_subdirectory(lib/bls-signatures)
 
+
+add_subdirectory(lib/bls-signatures)
 
 if (MSVC)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)   
@@ -73,34 +74,37 @@ else()
 	target_link_libraries(chia_plotter blake3 fse Threads::Threads)
 endif()
 
-add_executable(test_copy test/test_copy.cpp)
-add_executable(test_disk_sort test/test_disk_sort.cpp)
+#add_executable(test_copy test/test_copy.cpp)
+#add_executable(test_disk_sort test/test_disk_sort.cpp)
 
-add_executable(test_phase_1 test/test_phase_1.cpp)
-add_executable(test_phase_2 test/test_phase_2.cpp)
-add_executable(test_phase_3 test/test_phase_3.cpp)
-add_executable(test_phase_4 test/test_phase_4.cpp)
+#add_executable(test_phase_1 test/test_phase_1.cpp)
+#add_executable(test_phase_2 test/test_phase_2.cpp)
+#add_executable(test_phase_3 test/test_phase_3.cpp)
+#add_executable(test_phase_4 test/test_phase_4.cpp)
 
-add_executable(check_phase_1 test/check_phase_1.cpp)
 
-add_executable(chia_plot src/chia_plot.cpp)
+#add_executable(check_phase_1 test/check_phase_1.cpp)
+
+#add_executable(chia_plot src/chia_plot.cpp)
+add_executable(test_bls test/test_bls.cpp)
 
 if (MSVC)
 
 	add_library(uint128 STATIC uint128_t/uint128_t.cpp)
 	target_include_directories(uint128 PUBLIC uint128_t)
 
-	target_link_libraries(test_copy chia_plotter)
-	target_link_libraries(test_disk_sort chia_plotter uint128)
-	target_link_libraries(test_phase_1 chia_plotter uint128)
-	target_link_libraries(test_phase_2 chia_plotter uint128)
-	target_link_libraries(test_phase_3 chia_plotter uint128)
-	target_link_libraries(test_phase_4 chia_plotter uint128)
-	target_link_libraries(check_phase_1 chia_plotter uint128)
+#	target_link_libraries(test_copy chia_plotter)
+#	target_link_libraries(test_disk_sort chia_plotter uint128)
+#	target_link_libraries(test_phase_1 chia_plotter uint128)
+#	target_link_libraries(test_phase_2 chia_plotter uint128)
+#	target_link_libraries(test_phase_3 chia_plotter uint128)
+#	target_link_libraries(test_phase_4 chia_plotter uint128)
+#	target_link_libraries(check_phase_1 chia_plotter uint128)
 
-	target_link_libraries(chia_plot chia_plotter bls uint128)
-	set_target_properties(chia_plot PROPERTIES LINK_OPTIONS -NODEFAULTLIB:LIBCMT)
+#	target_link_libraries(chia_plot chia_plotter bls uint128)
+#	set_target_properties(chia_plot PROPERTIES LINK_OPTIONS -NODEFAULTLIB:LIBCMT)
 
+	target_link_libraries(test_bls bls uint128)
 else()
 	
 target_link_libraries(test_copy chia_plotter)
