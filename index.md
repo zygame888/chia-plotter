@@ -1,37 +1,40 @@
-## Welcome to GitHub Pages
+## chia-plotter (pipelined multi-threaded)
+This is a new implementation of a chia plotter which is designed as a processing pipeline, similar to how GPUs work, only the "cores" are normal software CPU threads.
+As a result this plotter is able to fully max out any storage device's bandwidth, simply by increasing the number of "cores", ie. threads.
 
-You can use the [editor on GitHub](https://github.com/stotiks/chia-plotter/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
+### Usage
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
-
-### Markdown
-
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
-
-```markdown
-Syntax highlighted code block
-
-# Header 1
-## Header 2
-### Header 3
-
-- Bulleted
-- List
-
-1. Numbered
-2. List
-
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
 ```
+For <poolkey> and <farmerkey> see output of `chia keys show`.
+<tmpdir> needs about 220 GiB space, it will handle about 25% of all writes. (Examples: './', '/mnt/tmp/')
+<tmpdir2> needs about 110 GiB space and ideally is a RAM drive, it will handle about 75% of all writes.
+Combined (tmpdir + tmpdir2) peak disk usage is less than 256 GiB.
+In case of <count> != 1, you may press Ctrl-C for graceful termination after current plot is finished.
 
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
+Usage:
+  chia_plot [OPTION...]
 
-### Jekyll Themes
+  -n, --count arg      Number of plots to create (default = 1, -1 = infinite)
+  -r, --threads arg    Number of threads (default = 4)
+  -u, --buckets arg    Number of buckets (default = 256)
+  -t, --tmpdir arg     Temporary directory, needs ~220 GiB (default = $PWD)
+  -2, --tmpdir2 arg    Temporary directory 2, needs ~110 GiB [RAM] (default = <tmpdir>)
+  -d, --finaldir arg   Final directory (default = <tmpdir>)
+  -p, --poolkey arg    Pool Public Key (48 bytes)
+  -f, --farmerkey arg  Farmer Public Key (48 bytes)
+      --help           Print help
+```
+  
+  
+**Your donation will help me build new versions**:  
+XCH: xch1vhfnguq36yya0kzc0a0wr9yyj5cm2cefsukcu45jef3x3zpjpa7qc888nm
 
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/stotiks/chia-plotter/settings/pages). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
+
+Build based on madMAx43v3r source code, check his [github](https://github.com/madMAx43v3r/chia-plotter).  
+**He is a legend!**
+
 
 ### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
+Join [Telegram Channel](https://t.me/joinchat/MNUucun9Fc05NzFk)  
+Join [Telegram Group Chat [EN]](https://t.me/joinchat/Zpp_MrInPN44YzQ0)  
+Join [Telegram Group Chat [RU]](https://t.me/joinchat/Ir7pi0SueGU1NjFk)  
