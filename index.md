@@ -23,6 +23,9 @@ Usage:
   -p, --poolkey arg    Pool Public Key (48 bytes)
   -f, --farmerkey arg  Farmer Public Key (48 bytes)
       --help           Print help
+      
+Make sure to crank up <threads> if you have plenty of cores, the default is 4. Depending on the phase more threads will be launched, the setting is just a multiplier.
+RAM usage depends on <threads> and <buckets>. With the new default of 256 buckets it's about 0.5 GB per thread at most.      
 ```
   
   
