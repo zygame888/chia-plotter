@@ -1,4 +1,4 @@
 theme: jekyll-theme-cayman
 title: Multi-threaded pipelined Chia k32 plotter
 description: Build for Windows
-show_downloads: true
+#show_downloads: true
