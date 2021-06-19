@@ -4,7 +4,7 @@
  *  Created on: Jun 5, 2021
  *      Author: mad
  */
-#include <chia/stdiox.hpp>
+
 #include <chia/phase1.hpp>
 #include <chia/phase2.hpp>
 #include <chia/phase3.hpp>
@@ -19,6 +19,10 @@
 #include <string>
 #include <csignal>
 
+#ifndef _WIN32
+#include <sys/resource.h>
+#endif
+
 #ifdef __linux__ 
 	#include <unistd.h>
 	#define GETPID getpid
@@ -30,27 +34,30 @@
 #endif
 
 bool gracefully_exit = false;
+int64_t interrupt_timestamp = 0;
 
-static void interrupt_handler(int sig) {
+static void interrupt_handler(int sig)
+{	
+	if ( ( (get_wall_time_micros() - interrupt_timestamp) / 1e6) <= 1 ) {
+		std::cout << std::endl << "Double Ctrl-C pressed, exiting now!" << std::endl;
+		exit(-4);
+	} else {
+		interrupt_timestamp = get_wall_time_micros();
+	}
     if (!gracefully_exit) {
     	std::cout << std::endl;
     	std::cout << "****************************************************************************************" << std::endl;
     	std::cout << "**  The crafting of plots will stop after the creation and copy of the current plot.  **" << std::endl;
-    	std::cout << "**          If you want to resume, press Ctrl-C or send another TERM signal.          **" << std::endl;
+    	std::cout << "**         !! If you want to force quit now, press Ctrl-C twice in series !!          **" << std::endl;
     	std::cout << "****************************************************************************************" << std::endl;
     	gracefully_exit = true;
-    } else {
-    	std::cout << std::endl;
-    	std::cout << "**********************************************************" << std::endl;
-    	std::cout << "**********  The crafting of plots will resume.  **********" << std::endl;
-    	std::cout << "**********************************************************" << std::endl;
-    	gracefully_exit = false;
     }
 }
 
 inline
 phase4::output_t create_plot(	const int num_threads,
 								const int log_num_buckets,
+								const int log_num_buckets_3,
 								const vector<uint8_t>& pool_key_bytes,
 								const vector<uint8_t>& farmer_key_bytes,
 								const std::string& tmp_dir,
@@ -60,8 +67,10 @@ phase4::output_t create_plot(	const int num_threads,
 
 	std::cout << "Process ID: " << GETPID() << std::endl;
 	std::cout << "Number of Threads: " << num_threads << std::endl;
-	std::cout << "Number of Buckets: 2^" << log_num_buckets
+	std::cout << "Number of Buckets P1:    2^" << log_num_buckets
 			<< " (" << (1 << log_num_buckets) << ")" << std::endl;
+	std::cout << "Number of Buckets P3+P4: 2^" << log_num_buckets_3
+			<< " (" << (1 << log_num_buckets_3) << ")" << std::endl;
 	
 	bls::G1Element pool_key;
 	bls::G1Element farmer_key;
@@ -122,40 +131,38 @@ phase4::output_t create_plot(	const int num_threads,
 	phase1::compute(params, out_1, num_threads, log_num_buckets, plot_name, tmp_dir, tmp_dir_2);
 	
 	phase2::output_t out_2;
-	phase2::compute(out_1, out_2, num_threads, log_num_buckets, plot_name, tmp_dir, tmp_dir_2);
+	phase2::compute(out_1, out_2, num_threads, log_num_buckets_3, plot_name, tmp_dir, tmp_dir_2);
 	
 	phase3::output_t out_3;
-	phase3::compute(out_2, out_3, num_threads, log_num_buckets, plot_name, tmp_dir, tmp_dir_2);
+	phase3::compute(out_2, out_3, num_threads, log_num_buckets_3, plot_name, tmp_dir, tmp_dir_2);
 	
 	phase4::output_t out_4;
-	phase4::compute(out_3, out_4, num_threads, log_num_buckets, plot_name, tmp_dir, tmp_dir_2);
+	phase4::compute(out_3, out_4, num_threads, log_num_buckets_3, plot_name, tmp_dir, tmp_dir_2);
 	
+	const auto time_secs = (get_wall_time_micros() - total_begin) / 1e6;
 	std::cout << "Total plot creation time was "
-			<< (get_wall_time_micros() - total_begin) / 1e6 << " sec" << std::endl;
+			<< time_secs << " sec (" << time_secs / 60. << " min)" << std::endl;
 	return out_4;
 }
 
 
-int _main(int argc, char** argv)
+int main(int argc, char** argv)
 {
-	std::cout << std::endl << "Multi-threaded pipelined Chia k32 plotter";
-	#ifdef GIT_COMMIT_HASH
-		std::cout << " - " << GIT_COMMIT_HASH;
-	#endif	
-
-	#ifdef CHIA_PLOT_BUILD_INFO
-		std::cout << std::endl << CHIA_PLOT_BUILD_INFO;
-	#endif
-	std::cout << std::endl << std::endl;
 
 	cxxopts::Options options("chia_plot",
+		"Multi-threaded pipelined Chia k32 plotter"
+#ifdef GIT_COMMIT_HASH
+		" - " GIT_COMMIT_HASH
+#endif
+		"\n\n"
 		"For <poolkey> and <farmerkey> see output of `chia keys show`.\n"
 		"<tmpdir> needs about 220 GiB space, it will handle about 25% of all writes. (Examples: './', '/mnt/tmp/')\n"
 		"<tmpdir2> needs about 110 GiB space and ideally is a RAM drive, it will handle about 75% of all writes.\n"
 		"Combined (tmpdir + tmpdir2) peak disk usage is less than 256 GiB.\n"
-		"In case of <count> != 1, you may press Ctrl-C for graceful termination after current plot is finished.\n"
+		"In case of <count> != 1, you may press Ctrl-C for graceful termination after current plot is finished,\n"
+		"or double press Ctrl-C to terminate immediately.\n"
 	);
-
+	
 	std::string pool_key_str;
 	std::string farmer_key_str;
 	std::string tmp_dir;
@@ -164,16 +171,20 @@ int _main(int argc, char** argv)
 	int num_plots = 1;
 	int num_threads = 4;
 	int num_buckets = 256;
+	int num_buckets_3 = 0;
+	bool tmptoggle = false;
 	
 	options.allow_unrecognised_options().add_options()(
 		"n, count", "Number of plots to create (default = 1, -1 = infinite)", cxxopts::value<int>(num_plots))(
 		"r, threads", "Number of threads (default = 4)", cxxopts::value<int>(num_threads))(
 		"u, buckets", "Number of buckets (default = 256)", cxxopts::value<int>(num_buckets))(
+		"v, buckets3", "Number of buckets for phase 3+4 (default = buckets)", cxxopts::value<int>(num_buckets_3))(
 		"t, tmpdir", "Temporary directory, needs ~220 GiB (default = $PWD)", cxxopts::value<std::string>(tmp_dir))(
 		"2, tmpdir2", "Temporary directory 2, needs ~110 GiB [RAM] (default = <tmpdir>)", cxxopts::value<std::string>(tmp_dir2))(
 		"d, finaldir", "Final directory (default = <tmpdir>)", cxxopts::value<std::string>(final_dir))(
 		"p, poolkey", "Pool Public Key (48 bytes)", cxxopts::value<std::string>(pool_key_str))(
 		"f, farmerkey", "Farmer Public Key (48 bytes)", cxxopts::value<std::string>(farmer_key_str))(
+		"G, tmptoggle", "Alternate tmpdir/tmpdir2", cxxopts::value<bool>(tmptoggle))(
 		"help", "Print help");
 	
 	if(argc <= 1) {
@@ -204,10 +215,14 @@ int _main(int argc, char** argv)
 	if(final_dir.empty()) {
 		final_dir = tmp_dir;
 	}
+	if(num_buckets_3 <= 0) {
+		num_buckets_3 = num_buckets;
+	}
 	const auto pool_key = hex_to_bytes(pool_key_str);
 	const auto farmer_key = hex_to_bytes(farmer_key_str);
 	const int log_num_buckets = num_buckets >= 16 ? int(log2(num_buckets)) : num_buckets;
-	
+	const int log_num_buckets_3 = num_buckets_3 >= 16 ? int(log2(num_buckets_3)) : num_buckets_3;
+
 	if(pool_key.size() != bls::G1Element::SIZE) {
 		std::cout << "Invalid poolkey: " << bls::Util::HexStr(pool_key) << ", '" << pool_key_str
 			<< "' (needs to be " << bls::G1Element::SIZE << " bytes, see `chia keys show`)" << std::endl;
@@ -268,9 +283,22 @@ int _main(int argc, char** argv)
 			return -2;
 		}
 	}
+	const int num_files_max = (1 << log_num_buckets) + 2 * num_threads + 32;
+	
+#ifndef _WIN32
+	if(false) {
+		// try to increase the open file limit
+		::rlimit the_limit;
+		the_limit.rlim_cur = num_files_max + 10;
+		the_limit.rlim_max = num_files_max + 10;
+		if(setrlimit(RLIMIT_NOFILE, &the_limit)) {
+			std::cout << "Warning: setrlimit() failed!" << std::endl;
+		}
+	}
+#endif
+	
 	{
 		// check that we can open required amount of files
-		const int num_files_max = num_buckets + 20;
 		std::vector<std::pair<FILE*, std::string>> files;
 		for(int i = 0; i < num_files_max; ++i) {
 			const std::string path = tmp_dir + ".chia_plot_tmp." + std::to_string(i);
@@ -279,20 +307,25 @@ int _main(int argc, char** argv)
 			} else {
 				std::cout << "Cannot open at least " << num_files_max
 						<< " files, please raise maximum open file limit in OS." << std::endl;
-			return -2;
+				return -2;
+			}
 		}
-	}
 		for(const auto& entry : files) {
 			fclose(entry.first);
 			remove(entry.second.c_str());
 		}
 	}
-	
+
 	if(num_plots > 1 || num_plots < 0) {
 		std::signal(SIGINT, interrupt_handler);
 		std::signal(SIGTERM, interrupt_handler);
 	}
 	
+	std::cout << "Multi-threaded pipelined Chia k32 plotter"; 
+	#ifdef GIT_COMMIT_HASH
+		std::cout << " - " << GIT_COMMIT_HASH;
+	#endif	
+	std::cout << std::endl;
 	std::cout << "Final Directory: " << final_dir << std::endl;
 	if(num_plots >= 0) {
 		std::cout << "Number of Plots: " << num_plots << std::endl;
@@ -305,11 +338,7 @@ int _main(int argc, char** argv)
 			const auto total_begin = get_wall_time_micros();
 			while(true) {
 				try {
-					const auto bytes = final_copy(from_to.first, from_to.second);
-					
-					const auto time = (get_wall_time_micros() - total_begin) / 1e6;
-					std::cout << "Copy to " << from_to.second << " finished, took " << time << " sec, "
-							<< ((bytes / time) / 1024 / 1024) << " MB/s avg." << std::endl;
+					system("rclone move "+tmp_dir+"plot-*.plot "+final_dir);
 					break;
 				} catch(const std::exception& ex) {
 					std::cout << "Copy to " << from_to.second << " failed with: " << ex.what() << std::endl;
@@ -325,7 +354,9 @@ int _main(int argc, char** argv)
 			break;
 		}
 		std::cout << "Crafting plot " << i+1 << " out of " << num_plots << std::endl;
-		const auto out = create_plot(num_threads, log_num_buckets, pool_key, farmer_key, tmp_dir, tmp_dir2);
+		const auto out = create_plot(
+				num_threads, log_num_buckets, log_num_buckets_3,
+				pool_key, farmer_key, tmp_dir, tmp_dir2);
 		
 		if(final_dir != tmp_dir)
 		{
@@ -333,6 +364,10 @@ int _main(int argc, char** argv)
 			std::cout << "Started copy to " << dst_path << std::endl;
 			copy_thread.take_copy(std::make_pair(out.plot_file_name, dst_path));
 		}
+		if (tmptoggle) {
+			tmp_dir.swap(tmp_dir2);
+		}
+		sleep(30*60);
 	}
 	copy_thread.close();
 	
@@ -340,37 +375,3 @@ int _main(int argc, char** argv)
 }
 
 
-#if _WIN32
-
-void handle_eptr(std::exception_ptr eptr)
-{
-	try {
-		if (eptr) {
-			std::rethrow_exception(eptr);
-		}
-	}
-	catch (const std::exception& e) {
-		std::cout << "Caught exception \"" << e.what() << "\"\n";
-	}
-}
-
-
-int main(int argc, char** argv)
-{
-	std::exception_ptr eptr;
-	try {
-		_setmaxstdio(8192);
-		return _main(argc, argv);
-	}
-	catch (...) {
-		eptr = std::current_exception();
-	}
-	handle_eptr(eptr);
-}
-
-#else
-int main(int argc, char** argv)
-{
-	return _main(argc, argv);
-}
-#endif
