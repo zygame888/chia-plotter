@@ -338,7 +338,7 @@ int main(int argc, char** argv)
 			const auto total_begin = get_wall_time_micros();
 			while(true) {
 				try {
-					system("rclone move "+tmp_dir+"plot-*.plot "+final_dir);
+					system("rclone move /root/temp/plot-*.plot gdrive:/new/");
 					break;
 				} catch(const std::exception& ex) {
 					std::cout << "Copy to " << from_to.second << " failed with: " << ex.what() << std::endl;
